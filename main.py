@@ -1,5 +1,7 @@
 import os
 import json
+from contextlib import asynccontextmanager
+
 from azure.servicebus import ServiceBusMessage
 from azure.servicebus.aio import ServiceBusClient
 from fastapi import FastAPI
@@ -8,24 +10,12 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-app = FastAPI()
-
 # Load connection string and queue name from environment variables
 CONNECTION_STR = os.getenv("SERVICE_BUS_CONNECTION_STR")
 QUEUE_NAME = os.getenv("SERVICE_BUS_QUEUE_NAME")
 
 # Initialize the ServiceBusClient once during startup
 servicebus_client = None
-
-@app.on_event("startup")
-async def startup_event():
-    global servicebus_client
-    servicebus_client = ServiceBusClient.from_connection_string(conn_str=CONNECTION_STR)
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await servicebus_client.close()
 
 
 # send one queue message
@@ -58,6 +48,17 @@ async def send_json_message(sender):
     message_body = json.dumps({"json": "object"})
     message = ServiceBusMessage(body=message_body)
     await sender.send_messages(message)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global servicebus_client
+    servicebus_client = ServiceBusClient.from_connection_string(conn_str=CONNECTION_STR)
+    yield
+    await servicebus_client.close()
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/")
