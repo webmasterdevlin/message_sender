@@ -43,7 +43,7 @@ class MessageBus:
         """
         self.service_callback_handler = service_callback_handler
         async with self.servicebus_client.get_queue_receiver(queue_name=self.queue_name,
-                                                             receive_mode=ServiceBusReceiveMode.PEEKLOCK) as receiver:
+                                                             receive_mode=ServiceBusReceiveMode.PEEK_LOCK) as receiver:
             print(f"Waiting for messages from {self.queue_name}...")
             async for msg in receiver:
                 try:
