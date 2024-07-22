@@ -7,12 +7,25 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
-app = FastAPI()
 
+app = FastAPI()
 
 # Load connection string and queue name from environment variables
 CONNECTION_STR = os.getenv("SERVICE_BUS_CONNECTION_STR")
 QUEUE_NAME = os.getenv("SERVICE_BUS_QUEUE_NAME")
+
+# Initialize the ServiceBusClient once during startup
+servicebus_client = None
+
+@app.on_event("startup")
+async def startup_event():
+    global servicebus_client
+    servicebus_client = ServiceBusClient.from_connection_string(conn_str=CONNECTION_STR)
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await servicebus_client.close()
 
 
 # send one queue message
@@ -49,15 +62,12 @@ async def send_json_message(sender):
 
 @app.get("/")
 async def root():
-    servicebus_client = ServiceBusClient.from_connection_string(conn_str=CONNECTION_STR)
-
-    async with servicebus_client:
-        sender = servicebus_client.get_queue_sender(queue_name=QUEUE_NAME)
-        async with sender:
-            await send_json_message(sender)
-            # await send_single_message(sender)
-            # await send_a_list_of_messages(sender)
-            # await send_batch_message(sender)
+    sender = servicebus_client.get_queue_sender(queue_name=QUEUE_NAME)
+    async with sender:
+        await send_json_message(sender)
+        # await send_single_message(sender)
+        # await send_a_list_of_messages(sender)
+        # await send_batch_message(sender)
 
     print("Send message is done.")
 
